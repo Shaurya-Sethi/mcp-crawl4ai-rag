@@ -99,6 +99,11 @@ The server provides essential web crawling and search tools:
    git clone https://github.com/coleam00/mcp-crawl4ai-rag.git
    cd mcp-crawl4ai-rag
    ```
+To automate steps 2-4, run:
+```bash
+./setup.sh
+```
+
 
 2. Install uv if you don't have it:
    ```bash
