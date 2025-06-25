@@ -1,8 +1,9 @@
 """
-MCP server for web crawling with Crawl4AI.
+MCP server for markdown file indexing and web crawling with Crawl4AI.
 
-This server provides tools to crawl websites using Crawl4AI, automatically detecting
-the appropriate crawl method based on URL type (sitemap, txt file, or regular webpage).
+This server provides tools to index local markdown/text files and crawl websites using Crawl4AI, 
+automatically detecting the appropriate method based on content type. It supports contextual 
+embeddings and stores content in Supabase for RAG applications.
 Also includes AI hallucination detection and repository parsing tools using Neo4j knowledge graphs.
 """
 from mcp.server.fastmcp import FastMCP, Context
@@ -218,7 +219,7 @@ async def crawl4ai_lifespan(server: FastMCP) -> AsyncIterator[Crawl4AIContext]:
 # Initialize FastMCP server
 mcp = FastMCP(
     "mcp-crawl4ai-rag",
-    description="MCP server for RAG and web crawling with Crawl4AI",
+    description="MCP server for markdown file indexing, RAG and web crawling with Crawl4AI",
     lifespan=crawl4ai_lifespan,
     host=os.getenv("HOST", "0.0.0.0"),
     port=os.getenv("PORT", "8051")
@@ -385,6 +386,127 @@ def process_code_example(args):
     """
     code, context_before, context_after = args
     return generate_code_example_summary(code, context_before, context_after)
+
+@mcp.tool()
+async def index_markdown_file(ctx: Context, file_path: str, source_name: Optional[str] = None, chunk_size: int = 10000) -> str:
+    """
+    Index and chunk a markdown or text file, storing it with contextual embeddings in Supabase.
+
+    This tool reads a local markdown or text file, intelligently chunks it, and stores it in the 
+    vector database with contextual embeddings for enhanced retrieval. Perfect for indexing 
+    documentation that has been copied from websites or created manually.
+
+    Args:
+        ctx: The MCP server provided context
+        file_path: Path to the markdown or text file to index
+        source_name: Optional custom source name (defaults to filename)
+        chunk_size: Maximum size of each content chunk in characters (default: 10000)
+
+    Returns:
+        Summary of the indexing operation and storage in Supabase
+    """
+    try:
+        if not os.path.exists(file_path):
+            return json.dumps({"success": False, "error": f"File not found: {file_path}"}, indent=2)
+
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext not in [".md", ".txt", ".markdown"]:
+            return json.dumps({"success": False, "error": "Unsupported file type. Use .md, .markdown or .txt"}, indent=2)
+
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+        except Exception as e:
+            return json.dumps({"success": False, "error": f"Failed to read file: {e}"}, indent=2)
+
+        if not content.strip():
+            return json.dumps({"success": False, "error": "File is empty"}, indent=2)
+
+        chunks = smart_chunk_markdown(content, chunk_size=chunk_size)
+        file_url = f"file://{os.path.abspath(file_path)}"
+        source_id = source_name if source_name else os.path.splitext(os.path.basename(file_path))[0]
+
+        urls = []
+        chunk_numbers = []
+        contents = []
+        metadatas = []
+        total_word_count = 0
+
+        for i, chunk in enumerate(chunks):
+            urls.append(file_url)
+            chunk_numbers.append(i)
+            contents.append(chunk)
+
+            meta = extract_section_info(chunk)
+            meta["chunk_index"] = i
+            meta["url"] = file_url
+            meta["source"] = source_id
+            meta["file_path"] = file_path
+            meta["crawl_time"] = "file_indexing"
+            meta["crawl_type"] = "markdown_file"
+            metadatas.append(meta)
+
+            total_word_count += meta.get("word_count", 0)
+
+        url_to_full_document = {file_url: content}
+
+        supabase_client = ctx.request_context.lifespan_context.supabase_client
+
+        source_summary = extract_source_summary(source_id, content[:5000])
+        update_source_info(supabase_client, source_id, source_summary, total_word_count)
+
+        add_documents_to_supabase(supabase_client, urls, chunk_numbers, contents, metadatas, url_to_full_document)
+
+        code_examples_stored = 0
+        if os.getenv("USE_AGENTIC_RAG", "false") == "true":
+            code_blocks = extract_code_blocks(content)
+            if code_blocks:
+                code_urls = []
+                code_chunk_numbers = []
+                code_examples = []
+                code_summaries = []
+                code_metadatas = []
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=LLM_MAX_CONCURRENCY) as executor:
+                    summary_args = [(block['code'], block['context_before'], block['context_after']) for block in code_blocks]
+                    summaries = list(executor.map(process_code_example, summary_args))
+
+                for i, (block, summary) in enumerate(zip(code_blocks, summaries)):
+                    code_urls.append(file_url)
+                    code_chunk_numbers.append(i)
+                    code_examples.append(block['code'])
+                    code_summaries.append(summary)
+                    code_meta = {
+                        "chunk_index": i,
+                        "url": file_url,
+                        "source": source_id,
+                        "char_count": len(block['code']),
+                        "word_count": len(block['code'].split())
+                    }
+                    code_metadatas.append(code_meta)
+
+                add_code_examples_to_supabase(
+                    supabase_client,
+                    code_urls,
+                    code_chunk_numbers,
+                    code_examples,
+                    code_summaries,
+                    code_metadatas
+                )
+                code_examples_stored = len(code_examples)
+
+        return json.dumps({
+            "success": True,
+            "file_path": file_path,
+            "source_id": source_id,
+            "chunks_stored": len(chunks),
+            "code_examples_stored": code_examples_stored,
+            "total_words": total_word_count,
+            "chunk_size_used": chunk_size,
+            "contextual_embeddings": os.getenv("USE_CONTEXTUAL_EMBEDDINGS", "false") == "true"
+        }, indent=2)
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e)}, indent=2)
 
 @mcp.tool()
 async def crawl_single_page(ctx: Context, url: str) -> str:
