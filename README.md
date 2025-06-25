@@ -1,12 +1,12 @@
 <h1 align="center">Crawl4AI RAG MCP Server</h1>
 
 <p align="center">
-  <em>Web Crawling and RAG Capabilities for AI Agents and AI Coding Assistants</em>
+  <em>Markdown File Indexing, Web Crawling and RAG Capabilities for AI Agents and AI Coding Assistants</em>
 </p>
 
-A powerful implementation of the [Model Context Protocol (MCP)](https://modelcontextprotocol.io) integrated with [Crawl4AI](https://crawl4ai.com) and [Supabase](https://supabase.com/) for providing AI agents and AI coding assistants with advanced web crawling and RAG capabilities.
+A powerful implementation of the [Model Context Protocol (MCP)](https://modelcontextprotocol.io) integrated with [Crawl4AI](https://crawl4ai.com) and [Supabase](https://supabase.com/) for providing AI agents and AI coding assistants with advanced markdown file indexing, web crawling and RAG capabilities.
 
-With this MCP server, you can <b>scrape anything</b> and then <b>use that knowledge anywhere</b> for RAG.
+With this MCP server, you can <b>index markdown files and scrape anything</b> and then <b>use that knowledge anywhere</b> for RAG.
 
 The primary goal is to bring this MCP server into [Archon](https://github.com/coleam00/Archon) as I evolve it to be more of a knowledge engine for AI coding assistants to build AI agents. This first version of the Crawl4AI/RAG MCP server will be improved upon greatly soon, especially making it more configurable so you can use different embedding models and run everything locally with Ollama.
 
@@ -14,7 +14,7 @@ Consider this GitHub repository a testbed, hence why I haven't been super active
 
 ## Overview
 
-This MCP server provides tools that enable AI agents to crawl websites, store content in a vector database (Supabase), and perform RAG over the crawled content. It follows the best practices for building MCP servers based on the [Mem0 MCP server template](https://github.com/coleam00/mcp-mem0/) I provided on my channel previously.
+This MCP server provides tools that enable AI agents to index local markdown/text files, crawl websites, store content in a vector database (Supabase), and perform RAG over the content. It follows the best practices for building MCP servers based on the [Mem0 MCP server template](https://github.com/coleam00/mcp-mem0/) I provided on my channel previously.
 
 The server includes several advanced RAG strategies that can be enabled to enhance retrieval quality:
 - **Contextual Embeddings** for enriched semantic understanding
@@ -41,6 +41,7 @@ The Crawl4AI RAG MCP server is just the beginning. Here's where we're headed:
 
 ## Features
 
+- **Markdown File Indexing**: Index local markdown and text files with intelligent chunking and contextual embeddings
 - **Smart URL Detection**: Automatically detects and handles different URL types (regular webpages, sitemaps, text files)
 - **Recursive Crawling**: Follows internal links to discover content
 - **Parallel Processing**: Efficiently crawls multiple pages simultaneously
@@ -54,20 +55,21 @@ The server provides essential web crawling and search tools:
 
 ### Core Tools (Always Available)
 
-1. **`crawl_single_page`**: Quickly crawl a single web page and store its content in the vector database
-2. **`smart_crawl_url`**: Intelligently crawl a full website based on the type of URL provided (sitemap, llms-full.txt, or a regular webpage that needs to be crawled recursively)
-3. **`get_available_sources`**: Get a list of all available sources (domains) in the database
-4. **`perform_rag_query`**: Search for relevant content using semantic search with optional source filtering
+1. **`index_markdown_file`**: Index and chunk a local markdown or text file, storing it with contextual embeddings in Supabase
+2. **`crawl_single_page`**: Quickly crawl a single web page and store its content in the vector database
+3. **`smart_crawl_url`**: Intelligently crawl a full website based on the type of URL provided (sitemap, llms-full.txt, or a regular webpage that needs to be crawled recursively)
+4. **`get_available_sources`**: Get a list of all available sources (domains) in the database
+5. **`perform_rag_query`**: Search for relevant content using semantic search with optional source filtering
 
 ### Conditional Tools
 
-5. **`search_code_examples`** (requires `USE_AGENTIC_RAG=true`): Search specifically for code examples and their summaries from crawled documentation. This tool provides targeted code snippet retrieval for AI coding assistants.
+6. **`search_code_examples`** (requires `USE_AGENTIC_RAG=true`): Search specifically for code examples and their summaries from crawled documentation. This tool provides targeted code snippet retrieval for AI coding assistants.
 
 ### Knowledge Graph Tools (requires `USE_KNOWLEDGE_GRAPH=true`, see below)
 
-6. **`parse_github_repository`**: Parse a GitHub repository into a Neo4j knowledge graph, extracting classes, methods, functions, and their relationships for hallucination detection
-7. **`check_ai_script_hallucinations`**: Analyze Python scripts for AI hallucinations by validating imports, method calls, and class usage against the knowledge graph
-8. **`query_knowledge_graph`**: Explore and query the Neo4j knowledge graph with commands like `repos`, `classes`, `methods`, and custom Cypher queries
+7. **`parse_github_repository`**: Parse a GitHub repository into a Neo4j knowledge graph, extracting classes, methods, functions, and their relationships for hallucination detection
+8. **`check_ai_script_hallucinations`**: Analyze Python scripts for AI hallucinations by validating imports, method calls, and class usage against the knowledge graph
+9. **`query_knowledge_graph`**: Explore and query the Neo4j knowledge graph with commands like `repos`, `classes`, `methods`, and custom Cypher queries
 
 ## Prerequisites
 
