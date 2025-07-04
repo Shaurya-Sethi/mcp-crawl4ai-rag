@@ -1080,7 +1080,12 @@ async def search_code_examples(ctx: Context, query: str, source_id: str = None, 
         }, indent=2)
 
 @mcp.tool()
-async def check_ai_script_hallucinations(ctx: Context, script_path: str) -> str:
+async def check_ai_script_hallucinations(
+    ctx: Context,
+    script_path: str | None = None,
+    script_content: str | None = None,
+    filename: str | None = None,
+) -> str:
     """
     Check an AI-generated Python script for hallucinations using the knowledge graph.
     
@@ -1097,7 +1102,11 @@ async def check_ai_script_hallucinations(ctx: Context, script_path: str) -> str:
     
     Args:
         ctx: The MCP server provided context
-        script_path: Absolute path to the Python script to analyze
+        script_path: Absolute path to the Python script to analyze. Optional if
+            ``script_content`` is provided.
+        script_content: Raw Python source to validate. If provided, it will be
+            written to a temporary file and analyzed as ``filename``.
+        filename: Optional filename to use when creating the temporary file.
     
     Returns:
         JSON string with hallucination detection results, confidence scores, and recommendations
@@ -1126,21 +1135,35 @@ async def check_ai_script_hallucinations(ctx: Context, script_path: str) -> str:
                 "error": "Knowledge graph validator not available. Check Neo4j configuration in environment variables."
             }, indent=2)
         
+        tmp_path = None
+
+        if script_content is not None:
+            suffix = filename if (filename and filename.endswith(".py")) else (
+                (filename or "temp_script") + ".py")
+            with NamedTemporaryFile("w", suffix=suffix, delete=False, dir="/tmp") as tmp:
+                tmp.write(script_content)
+                tmp_path = tmp.name
+            path_to_use = tmp_path
+        else:
+            path_to_use = script_path
+
         # Validate script path
-        validation = validate_script_path(script_path)
+        validation = validate_script_path(path_to_use)
         if not validation["valid"]:
+            if tmp_path:
+                os.remove(tmp_path)
             return json.dumps({
                 "success": False,
-                "script_path": script_path,
+                "script_path": path_to_use,
                 "error": validation["error"]
             }, indent=2)
-        
+
         # Step 1: Analyze script structure using AST
         analyzer = AIScriptAnalyzer()
-        analysis_result = analyzer.analyze_script(script_path)
+        analysis_result = analyzer.analyze_script(path_to_use)
         
         if analysis_result.errors:
-            print(f"Analysis warnings for {script_path}: {analysis_result.errors}")
+            print(f"Analysis warnings for {path_to_use}: {analysis_result.errors}")
         
         # Step 2: Validate against knowledge graph
         validation_result = await knowledge_validator.validate_script(analysis_result)
@@ -1150,9 +1173,9 @@ async def check_ai_script_hallucinations(ctx: Context, script_path: str) -> str:
         report = reporter.generate_comprehensive_report(validation_result)
         
         # Format response with comprehensive information
-        return json.dumps({
+        result_json = json.dumps({
             "success": True,
-            "script_path": script_path,
+            "script_path": path_to_use,
             "overall_confidence": validation_result.overall_confidence,
             "validation_summary": {
                 "total_validations": report["validation_summary"]["total_validations"],
@@ -1173,11 +1196,16 @@ async def check_ai_script_hallucinations(ctx: Context, script_path: str) -> str:
             },
             "libraries_analyzed": report.get("libraries_analyzed", [])
         }, indent=2)
+        if tmp_path:
+            os.remove(tmp_path)
+        return result_json
         
     except Exception as e:
+        if tmp_path:
+            os.remove(tmp_path)
         return json.dumps({
             "success": False,
-            "script_path": script_path,
+            "script_path": path_to_use if 'path_to_use' in locals() else str(script_path),
             "error": f"Analysis failed: {str(e)}"
         }, indent=2)
 
@@ -1195,20 +1223,16 @@ async def check_script_hallucinations_api(request: Request):
     if not script_content:
         return JSONResponse({"success": False, "error": "script_content is required"}, status_code=400)
 
-    suffix = filename if filename.endswith(".py") else filename + ".py"
-    with NamedTemporaryFile("w", suffix=suffix, delete=False, dir="/tmp") as tmp:
-        tmp.write(script_content)
-        tmp_path = tmp.name
-
-    try:
-        # No MCP request context is active for HTTP routes, so create a Context
-        # with only the FastMCP reference. check_ai_script_hallucinations will
-        # fall back to the server's lifespan_context in this case.
-        ctx = Context(fastmcp=mcp)
-        result_json = await check_ai_script_hallucinations(ctx, tmp_path)
-        return JSONResponse(json.loads(result_json))
-    finally:
-        os.remove(tmp_path)
+    # No MCP request context is active for HTTP routes, so create a Context
+    # with only the FastMCP reference. check_ai_script_hallucinations will
+    # fall back to the server's lifespan_context in this case.
+    ctx = Context(fastmcp=mcp)
+    result_json = await check_ai_script_hallucinations(
+        ctx,
+        script_content=script_content,
+        filename=filename,
+    )
+    return JSONResponse(json.loads(result_json))
 
 @mcp.tool()
 async def query_knowledge_graph(ctx: Context, command: str) -> str:
