@@ -176,6 +176,8 @@ class KnowledgeGraphValidator:
         """Validate a single import"""
         # Determine module to search for
         search_module = import_info.module if import_info.is_from_import else import_info.name
+
+        logger.debug("Validating import: %s", search_module)
         
         # Check cache first
         if search_module in self.module_cache:
@@ -211,6 +213,7 @@ class KnowledgeGraphValidator:
                 available_functions=functions
             )
         else:
+            logger.debug("No knowledge graph match for import '%s'", search_module)
             # External library - mark as such but don't treat as error
             validation = ValidationResult(
                 status=ValidationStatus.UNCERTAIN,
@@ -1170,8 +1173,11 @@ class KnowledgeGraphValidator:
         for val in result.function_validations:
             if val.function_call.full_name and self._is_from_knowledge_graph(val.function_call.full_name):
                 kg_validations.append(val.validation.confidence)
-        
+
         if not kg_validations:
+            logger.debug(
+                "No validations from knowledge graph modules; returning confidence 1.0"
+            )
             return 1.0  # No knowledge graph items to validate = perfect confidence
         
         return sum(kg_validations) / len(kg_validations)

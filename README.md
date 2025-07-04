@@ -66,7 +66,7 @@ The server provides essential web crawling and search tools:
 ### Knowledge Graph Tools (requires `USE_KNOWLEDGE_GRAPH=true`, see below)
 
 6. **`parse_github_repository`**: Parse a GitHub repository into a Neo4j knowledge graph, extracting classes, methods, functions, and their relationships for hallucination detection
-7. **`check_ai_script_hallucinations`**: Analyze Python scripts for AI hallucinations by validating imports, method calls, and class usage against the knowledge graph
+7. **`check_ai_script_hallucinations`**: Analyze Python scripts for AI hallucinations by validating imports, method calls, and class usage against the knowledge graph. The tool accepts either a path to a `.py` file or raw `script_content`.
 8. **`query_knowledge_graph`**: Explore and query the Neo4j knowledge graph with commands like `repos`, `classes`, `methods`, and custom Cypher queries
 
 ## Prerequisites
@@ -309,14 +309,30 @@ Once `USE_KNOWLEDGE_GRAPH=true` is set and Neo4j is running, you can:
    ```python
    import requests
    
-   with open('your_script.py', 'r') as f:
-       script_content = f.read()
+  with open('your_script.py', 'r') as f:
+      script_content = f.read()
    
    response = requests.post(
        'http://localhost:8051/api/check_script_hallucinations',
        json={'script_content': script_content, 'filename': 'your_script.py'}
    )
    print(response.json())
+  ```
+
+   You can also call `check_ai_script_hallucinations` directly in Python:
+
+   ```python
+   import asyncio
+   from crawl4ai_mcp import check_ai_script_hallucinations, Context
+
+   ctx = Context(fastmcp=None)  # supply your FastMCP instance
+   report_json = asyncio.run(
+       check_ai_script_hallucinations(
+           ctx,
+           script_content=script_content,
+           filename="your_script.py"
+       )
+   )
    ```
    
 These commands are also available to AI coding assistants through the parse_github_repository and check_ai_script_hallucinations tools.
