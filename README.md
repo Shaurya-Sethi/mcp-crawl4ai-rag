@@ -286,10 +286,37 @@ Once `USE_KNOWLEDGE_GRAPH=true` is set and Neo4j is running, you can:
 
    Or send the script content directly:
 
+   **Using curl (macOS/Linux):**
    ```bash
    curl -X POST http://localhost:8051/api/check_script_hallucinations \
         -H "Content-Type: application/json" \
         -d '{"script_content": "print(123)", "filename": "example.py"}'
+   ```
+
+   **Using PowerShell (Windows):**
+   ```powershell
+   $headers = @{ "Content-Type" = "application/json" }
+   $script = [string](Get-Content .\your_script.py -Raw)
+   $bodyObj = @{
+       script_content = $script
+       filename = "your_script.py"
+   }
+   $body = $bodyObj | ConvertTo-Json -Compress
+   Invoke-RestMethod -Uri "http://localhost:8051/api/check_script_hallucinations" -Method Post -Headers $headers -Body $body
+   ```
+
+   **Using Python (cross-platform):**
+   ```python
+   import requests
+   
+   with open('your_script.py', 'r') as f:
+       script_content = f.read()
+   
+   response = requests.post(
+       'http://localhost:8051/api/check_script_hallucinations',
+       json={'script_content': script_content, 'filename': 'your_script.py'}
+   )
+   print(response.json())
    ```
    
 These commands are also available to AI coding assistants through the parse_github_repository and check_ai_script_hallucinations tools.
