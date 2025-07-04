@@ -136,7 +136,10 @@ Before running the server, you need to set up the database with the pgvector ext
 
 To enable AI hallucination detection and repository analysis features, you need to set up Neo4j.
 
-Also, the knowledge graph implementation isn't fully compatible with Docker yet, so I would recommend right now running directly through uv if you want to use the hallucination detection within the MCP server!
+Prior versions required passing a file path to the hallucination checker, which
+made Docker usage awkward. A new `/api/check_script_hallucinations` endpoint now
+accepts raw script content so you can run the server in Docker without mounting
+files.
 
 For installing Neo4j:
 
@@ -247,7 +250,7 @@ Applies cross-encoder reranking to search results after initial retrieval. Uses 
 - **Benefits**: Better result relevance, especially for complex queries. Works with both regular RAG search and code example search.
 
 #### 5. **USE_KNOWLEDGE_GRAPH**
-Enables AI hallucination detection and repository analysis using Neo4j knowledge graphs. When enabled, the system can parse GitHub repositories into a graph database and validate AI-generated code against real repository structures. (NOT fully compatible with Docker yet, I'd recommend running through uv)
+Enables AI hallucination detection and repository analysis using Neo4j knowledge graphs. When enabled, the system can parse GitHub repositories into a graph database and validate AI-generated code against real repository structures.
 
 - **When to use**: Enable this for AI coding assistants that need to validate generated code against real implementations, or when you want to detect when AI models hallucinate non-existent methods, classes, or incorrect usage patterns.
 - **Trade-offs**: Requires Neo4j setup and additional dependencies. Repository parsing can be slow for large codebases, and validation requires repositories to be pre-indexed.
@@ -279,6 +282,14 @@ Once `USE_KNOWLEDGE_GRAPH=true` is set and Neo4j is running, you can:
 
    ```bash
    python knowledge_graphs/ai_hallucination_detector.py /path/to/your_script.py
+   ```
+
+   Or send the script content directly:
+
+   ```bash
+   curl -X POST http://localhost:8051/api/check_script_hallucinations \
+        -H "Content-Type: application/json" \
+        -d '{"script_content": "print(123)", "filename": "example.py"}'
    ```
    
 These commands are also available to AI coding assistants through the parse_github_repository and check_ai_script_hallucinations tools.

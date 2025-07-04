@@ -16,6 +16,9 @@ from xml.etree import ElementTree
 from dotenv import load_dotenv
 from supabase import Client
 from pathlib import Path
+from tempfile import NamedTemporaryFile
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 import requests
 import asyncio
 import json
@@ -1164,6 +1167,32 @@ async def check_ai_script_hallucinations(ctx: Context, script_path: str) -> str:
             "script_path": script_path,
             "error": f"Analysis failed: {str(e)}"
         }, indent=2)
+
+
+@mcp.custom_route("/api/check_script_hallucinations", methods=["POST"])
+async def check_script_hallucinations_api(request: Request):
+    """HTTP endpoint to validate Python code content for hallucinations."""
+    try:
+        payload = await request.json()
+    except Exception:
+        return JSONResponse({"success": False, "error": "Invalid JSON body"}, status_code=400)
+
+    script_content = payload.get("script_content")
+    filename = payload.get("filename", "temp_script.py")
+    if not script_content:
+        return JSONResponse({"success": False, "error": "script_content is required"}, status_code=400)
+
+    suffix = filename if filename.endswith(".py") else filename + ".py"
+    with NamedTemporaryFile("w", suffix=suffix, delete=False, dir="/tmp") as tmp:
+        tmp.write(script_content)
+        tmp_path = tmp.name
+
+    try:
+        ctx = mcp.get_context()
+        result_json = await check_ai_script_hallucinations(ctx, tmp_path)
+        return JSONResponse(json.loads(result_json))
+    finally:
+        os.remove(tmp_path)
 
 @mcp.tool()
 async def query_knowledge_graph(ctx: Context, command: str) -> str:
