@@ -194,15 +194,22 @@ async def crawl4ai_lifespan(server: FastMCP) -> AsyncIterator[Crawl4AIContext]:
     else:
         print("Knowledge graph functionality disabled - set USE_KNOWLEDGE_GRAPH=true to enable")
     
+    context = Crawl4AIContext(
+        crawler=crawler,
+        supabase_client=supabase_client,
+        reranking_model=reranking_model,
+        knowledge_validator=knowledge_validator,
+        repo_extractor=repo_extractor,
+    )
+    # expose the lifespan context on the FastMCP instance so HTTP routes can
+    # access it without an active MCP request context
+    server.lifespan_context = context
+
     try:
-        yield Crawl4AIContext(
-            crawler=crawler,
-            supabase_client=supabase_client,
-            reranking_model=reranking_model,
-            knowledge_validator=knowledge_validator,
-            repo_extractor=repo_extractor
-        )
+        yield context
     finally:
+        # remove reference for cleanup
+        server.lifespan_context = None
         # Clean up all components
         await crawler.__aexit__(None, None, None)
         if knowledge_validator:
@@ -1104,8 +1111,14 @@ async def check_ai_script_hallucinations(ctx: Context, script_path: str) -> str:
                 "error": "Knowledge graph functionality is disabled. Set USE_KNOWLEDGE_GRAPH=true in environment."
             }, indent=2)
         
-        # Get the knowledge validator from context
-        knowledge_validator = ctx.request_context.lifespan_context.knowledge_validator
+        # Get the knowledge validator from context. When invoked via MCP tools
+        # there will be an active request_context. HTTP routes call this
+        # function without one, so fall back to the server's lifespan_context.
+        knowledge_validator = None
+        if ctx._request_context is not None:
+            knowledge_validator = ctx.request_context.lifespan_context.knowledge_validator
+        elif hasattr(ctx.fastmcp, "lifespan_context"):
+            knowledge_validator = getattr(ctx.fastmcp.lifespan_context, "knowledge_validator", None)
         
         if not knowledge_validator:
             return json.dumps({
@@ -1188,7 +1201,10 @@ async def check_script_hallucinations_api(request: Request):
         tmp_path = tmp.name
 
     try:
-        ctx = mcp.get_context()
+        # No MCP request context is active for HTTP routes, so create a Context
+        # with only the FastMCP reference. check_ai_script_hallucinations will
+        # fall back to the server's lifespan_context in this case.
+        ctx = Context(fastmcp=mcp)
         result_json = await check_ai_script_hallucinations(ctx, tmp_path)
         return JSONResponse(json.loads(result_json))
     finally:
