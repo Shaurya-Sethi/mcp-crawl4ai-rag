@@ -197,7 +197,14 @@ class AIScriptAnalyzer:
                             }
                             call_name = f"{base_name}.{attr}" if base_name else attr
                             full_name = self._resolve_full_name(call_name)
+                            is_class = False
                             if attr and attr[0].isupper():
+                                is_class = True
+                            else:
+                                if attr == base_root or self._is_likely_class_instantiation(attr, full_name):
+                                    is_class = True
+
+                            if is_class:
                                 instantiation = ClassInstantiation(
                                     variable_name=var_name,
                                     class_name=call_name,
@@ -241,7 +248,16 @@ class AIScriptAnalyzer:
                 base_root = base_name.split('.')[0] if base_name else None
                 if base_root and base_root in self.import_map:
                     # module qualified call
+                    is_class = False
                     if attr and attr[0].isupper():
+                        is_class = True
+                    else:
+                        call_name = f"{base_name}.{attr}" if base_name else attr
+                        full_name = self._resolve_full_name(call_name)
+                        if attr == base_root or self._is_likely_class_instantiation(attr, full_name):
+                            is_class = True
+
+                    if is_class:
                         self._extract_nested_class_instantiation(node, result)
                     else:
                         self._extract_function_call(node, result)
@@ -449,16 +465,21 @@ class AIScriptAnalyzer:
         # Check if it's a known imported class (classes typically start with uppercase)
         if func_name and func_name[0].isupper():
             return True
-        
+
         # Check if the full name suggests a class (contains known class patterns)
         if full_name:
+            parts = full_name.split('.')
+            if len(parts) >= 2 and parts[-1].lower() == parts[-2].lower():
+                return True
+
             # Common class patterns in module names
             class_patterns = [
                 'Model', 'Provider', 'Client', 'Agent', 'Manager', 'Handler',
                 'Builder', 'Factory', 'Service', 'Controller', 'Processor'
             ]
-            return any(pattern in full_name for pattern in class_patterns)
-        
+            if any(pattern in full_name for pattern in class_patterns):
+                return True
+
         return False
     
     def _extract_nested_class_instantiation(self, node: ast.Call, result: AnalysisResult):
