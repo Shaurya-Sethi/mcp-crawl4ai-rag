@@ -66,7 +66,7 @@ The server provides essential web crawling and search tools:
 ### Knowledge Graph Tools (requires `USE_KNOWLEDGE_GRAPH=true`, see below)
 
 6. **`parse_github_repository`**: Parse a GitHub repository into a Neo4j knowledge graph, extracting classes, methods, functions, and their relationships for hallucination detection
-7. **`check_ai_script_hallucinations`**: Analyze Python scripts for AI hallucinations by validating imports, method calls, and class usage against the knowledge graph. The tool accepts either a path to a `.py` file or raw `script_content`.
+7. **`check_ai_script_hallucinations`**: Analyze Python scripts for AI hallucinations by validating imports, method calls, and class usage against the knowledge graph. The tool accepts either a path to a `.py` file or raw `script_content`. **When the server runs in Docker, file paths must refer to locations inside the container. Mount host directories with `-v` or send the script through the `/api/check_script_hallucinations` endpoint using `script_content` to avoid `Script not found` errors.**
 8. **`query_knowledge_graph`**: Explore and query the Neo4j knowledge graph with commands like `repos`, `classes`, `methods`, and custom Cypher queries
 
 ## Prerequisites
@@ -139,7 +139,8 @@ To enable AI hallucination detection and repository analysis features, you need 
 Prior versions required passing a file path to the hallucination checker, which
 made Docker usage awkward. A new `/api/check_script_hallucinations` endpoint now
 accepts raw script content so you can run the server in Docker without mounting
-files.
+files. If you do use file paths, they must point to files that exist inside the
+container—mount the necessary directories with Docker's `-v` flag.
 
 For installing Neo4j:
 
@@ -380,6 +381,14 @@ USE_KNOWLEDGE_GRAPH=false
 
 ```bash
 docker run --env-file .env -p 8051:8051 mcp/crawl4ai-rag
+```
+
+To analyze scripts by path, mount a local folder containing them:
+
+```bash
+docker run --env-file .env -p 8051:8051 \
+  -v /path/to/my-scripts:/app/scripts \
+  mcp/crawl4ai-rag
 ```
 
 ### Using Python
