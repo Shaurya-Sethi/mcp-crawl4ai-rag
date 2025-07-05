@@ -87,6 +87,7 @@ class AIScriptAnalyzer:
     
     def __init__(self):
         self.import_map: Dict[str, str] = {}  # alias -> actual_module_name
+        self.star_imports: Set[str] = set()  # modules imported using 'from X import *'
         self.variable_types: Dict[str, str] = {}  # variable_name -> class_type
         self.context_manager_vars: Dict[str, Tuple[int, int, str]] = {}  # var_name -> (start_line, end_line, type)
         
@@ -101,6 +102,7 @@ class AIScriptAnalyzer:
             
             # Reset state for new analysis
             self.import_map.clear()
+            self.star_imports.clear()
             self.variable_types.clear()
             self.context_manager_vars.clear()
             
@@ -155,7 +157,22 @@ class AIScriptAnalyzer:
             for alias in node.names:
                 import_name = alias.name
                 alias_name = alias.asname or import_name
-                
+
+                # Track star imports separately for later resolution
+                if import_name == "*":
+                    if module:
+                        self.star_imports.add(module)
+                    result.imports.append(
+                        ImportInfo(
+                            module=module,
+                            name=import_name,
+                            alias=alias.asname,
+                            is_from_import=True,
+                            line_number=line_num,
+                        )
+                    )
+                    continue
+
                 result.imports.append(ImportInfo(
                     module=module,
                     name=import_name,
@@ -578,7 +595,27 @@ class AIScriptAnalyzer:
         if len(parts) > 1 and parts[0] in self.import_map:
             base_module = self.import_map[parts[0]]
             return f"{base_module}.{'.'.join(parts[1:])}"
-        
+
+        # Check modules imported using 'from X import *'
+        if self.star_imports:
+            import importlib
+            for module_name in self.star_imports:
+                try:
+                    module = importlib.import_module(module_name)
+                except Exception:
+                    continue
+
+                obj = module
+                found = True
+                for part in parts:
+                    if hasattr(obj, part):
+                        obj = getattr(obj, part)
+                    else:
+                        found = False
+                        break
+                if found:
+                    return f"{module_name}.{name}"
+
         return None
 
 
