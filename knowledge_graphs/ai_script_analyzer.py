@@ -179,18 +179,48 @@ class AIScriptAnalyzer:
         if isinstance(node, ast.Assign):
             if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
                 if isinstance(node.value, ast.Call):
-                    # Check if it's a class instantiation or method call
                     if isinstance(node.value.func, ast.Name):
                         # Direct function/class call
                         self._extract_class_instantiation(node, result)
-                        # Mark this call as processed to avoid duplicate processing
                         self.processed_calls.add(id(node.value))
                     elif isinstance(node.value.func, ast.Attribute):
-                        # Method call - track the variable assignment for type inference
                         var_name = node.targets[0].id
-                        self._track_method_result_assignment(node.value, var_name)
-                        # Still process the method call
-                        self._extract_method_call(node.value, result)
+                        base_name = self._get_name_from_node(node.value.func.value)
+                        attr = node.value.func.attr
+                        base_root = base_name.split('.')[0] if base_name else None
+                        if base_root and base_root in self.import_map:
+                            # module qualified call
+                            args = [self._get_arg_representation(a) for a in node.value.args]
+                            kwargs = {
+                                kw.arg: self._get_arg_representation(kw.value)
+                                for kw in node.value.keywords if kw.arg
+                            }
+                            call_name = f"{base_name}.{attr}" if base_name else attr
+                            full_name = self._resolve_full_name(call_name)
+                            if attr and attr[0].isupper():
+                                instantiation = ClassInstantiation(
+                                    variable_name=var_name,
+                                    class_name=call_name,
+                                    args=args,
+                                    kwargs=kwargs,
+                                    line_number=line_num,
+                                    full_class_name=full_name
+                                )
+                                result.class_instantiations.append(instantiation)
+                                self.variable_types[var_name] = full_name or call_name
+                            else:
+                                function_call = FunctionCall(
+                                    function_name=call_name,
+                                    args=args,
+                                    kwargs=kwargs,
+                                    line_number=line_num,
+                                    full_name=full_name
+                                )
+                                result.function_calls.append(function_call)
+                        else:
+                            # Method call - track the variable assignment for type inference
+                            self._track_method_result_assignment(node.value, var_name)
+                            self._extract_method_call(node.value, result)
                         self.processed_calls.add(id(node.value))
         
         # AsyncWith statements (context managers)
@@ -204,11 +234,22 @@ class AIScriptAnalyzer:
             # Skip if this call was already processed as part of an assignment
             if id(node) in self.processed_calls:
                 return
-                
+
             if isinstance(node.func, ast.Attribute):
-                self._extract_method_call(node, result)
-                # Mark this attribute as used in method call to avoid duplicate processing
-                self.method_call_attributes.add(id(node.func))
+                base_name = self._get_name_from_node(node.func.value)
+                attr = node.func.attr
+                base_root = base_name.split('.')[0] if base_name else None
+                if base_root and base_root in self.import_map:
+                    # module qualified call
+                    if attr and attr[0].isupper():
+                        self._extract_nested_class_instantiation(node, result)
+                    else:
+                        self._extract_function_call(node, result)
+                    self.method_call_attributes.add(id(node.func))
+                else:
+                    self._extract_method_call(node, result)
+                    # Mark this attribute as used in method call to avoid duplicate processing
+                    self.method_call_attributes.add(id(node.func))
             elif isinstance(node.func, ast.Name):
                 # Check if this is likely a class instantiation (based on imported classes)
                 func_name = node.func.id
@@ -265,18 +306,26 @@ class AIScriptAnalyzer:
         """Extract method call information"""
         if isinstance(node.func, ast.Attribute):
             line_num = getattr(node, 'lineno', 0)
-            
-            # Get object and method names
+
             obj_name = self._get_name_from_node(node.func.value)
             method_name = node.func.attr
-            
+
+            base_root = obj_name.split('.')[0] if obj_name else None
+            if base_root and base_root in self.import_map:
+                # This attribute call is actually module-qualified
+                if method_name and method_name[0].isupper():
+                    self._extract_nested_class_instantiation(node, result)
+                else:
+                    self._extract_function_call(node, result)
+                return
+
             if obj_name and method_name:
                 args = [self._get_arg_representation(arg) for arg in node.args]
                 kwargs = {
-                    kw.arg: self._get_arg_representation(kw.value) 
+                    kw.arg: self._get_arg_representation(kw.value)
                     for kw in node.keywords if kw.arg
                 }
-                
+
                 method_call = MethodCall(
                     object_name=obj_name,
                     method_name=method_name,
@@ -285,21 +334,24 @@ class AIScriptAnalyzer:
                     line_number=line_num,
                     object_type=self.variable_types.get(obj_name)
                 )
-                
+
                 result.method_calls.append(method_call)
     
     def _extract_function_call(self, node: ast.Call, result: AnalysisResult):
         """Extract function call information"""
-        if isinstance(node.func, ast.Name):
+        if isinstance(node.func, (ast.Name, ast.Attribute)):
             line_num = getattr(node, 'lineno', 0)
-            func_name = node.func.id
-            
+            if isinstance(node.func, ast.Name):
+                func_name = node.func.id
+            else:
+                func_name = self._get_name_from_call(node.func)
+
             args = [self._get_arg_representation(arg) for arg in node.args]
             kwargs = {
-                kw.arg: self._get_arg_representation(kw.value) 
+                kw.arg: self._get_arg_representation(kw.value)
                 for kw in node.keywords if kw.arg
             }
-            
+
             # Resolve full function name using import map
             full_func_name = self._resolve_full_name(func_name)
             
@@ -415,29 +467,34 @@ class AIScriptAnalyzer:
         
         if isinstance(node.func, ast.Name):
             class_name = node.func.id
-            
-            args = [self._get_arg_representation(arg) for arg in node.args]
-            kwargs = {
-                kw.arg: self._get_arg_representation(kw.value) 
-                for kw in node.keywords if kw.arg
-            }
-            
-            # Resolve full class name using import map
-            full_class_name = self._resolve_full_name(class_name)
-            
-            # Use a synthetic variable name since this isn't assigned to a variable
-            var_name = f"<{class_name.lower()}_instance>"
-            
-            instantiation = ClassInstantiation(
-                variable_name=var_name,
-                class_name=class_name,
-                args=args,
-                kwargs=kwargs,
-                line_number=line_num,
-                full_class_name=full_class_name
-            )
-            
-            result.class_instantiations.append(instantiation)
+        elif isinstance(node.func, ast.Attribute):
+            class_name = self._get_name_from_call(node.func)
+        else:
+            return
+
+        args = [self._get_arg_representation(arg) for arg in node.args]
+        kwargs = {
+            kw.arg: self._get_arg_representation(kw.value)
+            for kw in node.keywords if kw.arg
+        }
+
+        # Resolve full class name using import map
+        full_class_name = self._resolve_full_name(class_name)
+
+        # Use a synthetic variable name since this isn't assigned to a variable
+        simple_name = class_name.split('.')[-1]
+        var_name = f"<{simple_name.lower()}_instance>"
+
+        instantiation = ClassInstantiation(
+            variable_name=var_name,
+            class_name=class_name,
+            args=args,
+            kwargs=kwargs,
+            line_number=line_num,
+            full_class_name=full_class_name
+        )
+
+        result.class_instantiations.append(instantiation)
     
     def _track_method_result_assignment(self, call_node: ast.Call, var_name: str):
         """Track when a variable is assigned the result of a method call"""
