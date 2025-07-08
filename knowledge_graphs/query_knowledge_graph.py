@@ -261,6 +261,42 @@ class KnowledgeGraphQuerier:
                 print(f"❌ Method '{method_name}' not found.")
         
         return methods
+
+    async def search_function(self, function_name: str):
+        """Search for standalone functions by name"""
+        print(f"\n🔍 Searching for function '{function_name}':")
+        print("=" * 60)
+
+        async with self.driver.session() as session:
+            query = """
+                MATCH (r:Repository)-[:CONTAINS]->(f:File)-[:DEFINES]->(func:Function)
+                WHERE func.name = $function_name OR func.full_name = $function_name
+                RETURN r.name as repo_name, f.path as file_path,
+                       func.name as function_name, func.params_list as params_list,
+                       func.return_type as return_type, func.params_detailed as params_detailed
+                ORDER BY r.name, f.path
+            """
+            result = await session.run(query, function_name=function_name)
+
+            funcs = []
+            async for record in result:
+                params = record["params_detailed"] or record["params_list"] or []
+                funcs.append({
+                    'repo_name': record['repo_name'],
+                    'file_path': record['file_path'],
+                    'function_name': record['function_name'],
+                    'params_list': params,
+                    'return_type': record['return_type'] or 'Any'
+                })
+
+            if funcs:
+                for i, fn in enumerate(funcs, 1):
+                    params_str = ', '.join(fn['params_list']) if fn['params_list'] else ''
+                    print(f"{i}. {fn['repo_name']}:{fn['file_path']} -> {fn['function_name']}({params_str}) -> {fn['return_type']}")
+            else:
+                print(f"❌ Function '{function_name}' not found.")
+
+            return funcs
     
     async def run_custom_query(self, query: str):
         """Run a custom Cypher query"""
@@ -302,6 +338,7 @@ async def interactive_mode(querier: KnowledgeGraphQuerier):
     print("  classes [repo] - List classes (optionally in specific repo)")
     print("  class <name>   - Explore a specific class")
     print("  method <name> [class] - Search for method")
+    print("  function <name> - Search for function")
     print("  query <cypher> - Run custom Cypher query")
     print("  quit           - Exit")
     print()
@@ -333,6 +370,9 @@ async def interactive_mode(querier: KnowledgeGraphQuerier):
                     await querier.search_method(parts[0], parts[1])
                 else:
                     await querier.search_method(parts[0])
+            elif command.startswith("function "):
+                func_name = command[9:].strip()
+                await querier.search_function(func_name)
             elif command.startswith("query "):
                 query = command[6:].strip()
                 await querier.run_custom_query(query)
@@ -354,6 +394,7 @@ async def main():
     parser.add_argument('--explore', metavar='REPO', help='Explore repository')
     parser.add_argument('--class', dest='class_name', metavar='NAME', help='Explore class')
     parser.add_argument('--method', nargs='+', metavar=('NAME', 'CLASS'), help='Search method')
+    parser.add_argument('--function', metavar='NAME', help='Search function')
     parser.add_argument('--query', metavar='CYPHER', help='Run custom query')
     parser.add_argument('--interactive', action='store_true', help='Interactive mode')
     
@@ -384,6 +425,8 @@ async def main():
                 await querier.search_method(args.method[0], args.method[1])
             else:
                 await querier.search_method(args.method[0])
+        elif args.function:
+            await querier.search_function(args.function)
         elif args.query:
             await querier.run_custom_query(args.query)
         elif args.interactive or len(sys.argv) == 1:
@@ -396,5 +439,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    import sys
-    asyncio.run(main())
+    import sys    asyncio.run(main())
