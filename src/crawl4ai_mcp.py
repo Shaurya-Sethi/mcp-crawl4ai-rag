@@ -1261,6 +1261,9 @@ async def query_knowledge_graph(ctx: Context, command: str) -> str:
     **Method Commands:**
     - `method <method_name>` - Search for methods by name across all classes
     - `method <method_name> <class_name>` - Search for a method within a specific class
+
+    **Function Commands:**
+    - `function <function_name>` - Search for standalone functions by name
     
     **Custom Query:**
     - `query <cypher_query>` - Execute a custom Cypher query (results limited to 20 records)
@@ -1323,7 +1326,7 @@ async def query_knowledge_graph(ctx: Context, command: str) -> str:
             return json.dumps({
                 "success": False,
                 "command": "",
-                "error": "Command cannot be empty. Available commands: repos, explore <repo>, classes [repo], class <name>, method <name> [class], query <cypher>"
+                "error": "Command cannot be empty. Available commands: repos, explore <repo>, classes [repo], class <name>, method <name> [class], function <name>, query <cypher>"
             }, indent=2)
         
         parts = command.split()
@@ -1363,6 +1366,15 @@ async def query_knowledge_graph(ctx: Context, command: str) -> str:
                 method_name = args[0]
                 class_name = args[1] if len(args) > 1 else None
                 return await _handle_method_command(session, command, method_name, class_name)
+            elif cmd == "function":
+                if not args:
+                    return json.dumps({
+                        "success": False,
+                        "command": command,
+                        "error": "Function name required. Usage: function <function_name>"
+                    }, indent=2)
+                function_name = args[0]
+                return await _handle_function_command(session, command, function_name)
             elif cmd == "query":
                 if not args:
                     return json.dumps({
@@ -1376,7 +1388,7 @@ async def query_knowledge_graph(ctx: Context, command: str) -> str:
                 return json.dumps({
                     "success": False,
                     "command": command,
-                    "error": f"Unknown command '{cmd}'. Available commands: repos, explore <repo>, classes [repo], class <name>, method <name> [class], query <cypher>"
+                    "error": f"Unknown command '{cmd}'. Available commands: repos, explore <repo>, classes [repo], class <name>, method <name> [class], function <name>, query <cypher>"
                 }, indent=2)
                 
     except Exception as e:
@@ -1647,6 +1659,50 @@ async def _handle_method_command(session, command: str, method_name: str, class_
         "metadata": {
             "total_results": len(methods),
             "limited": len(methods) >= 20 and not class_name
+        }
+    }, indent=2)
+
+
+async def _handle_function_command(session, command: str, function_name: str) -> str:
+    """Handle 'function <name>' command - search for standalone functions"""
+    query = """
+        MATCH (r:Repository)-[:CONTAINS]->(f:File)-[:DEFINES]->(func:Function)
+        WHERE func.name = $function_name OR func.full_name = $function_name
+        RETURN r.name as repo_name, f.path as file_path,
+               func.name as function_name, func.params_list as params_list,
+               func.params_detailed as params_detailed, func.return_type as return_type
+        ORDER BY r.name, f.path
+        LIMIT 20
+    """
+    result = await session.run(query, function_name=function_name)
+
+    functions = []
+    async for record in result:
+        params_to_use = record["params_detailed"] or record["params_list"] or []
+        functions.append({
+            "repository": record["repo_name"],
+            "file_path": record["file_path"],
+            "function_name": record["function_name"],
+            "parameters": params_to_use,
+            "return_type": record["return_type"] or "Any",
+        })
+
+    if not functions:
+        return json.dumps({
+            "success": False,
+            "command": command,
+            "error": f"Function '{function_name}' not found",
+        }, indent=2)
+
+    return json.dumps({
+        "success": True,
+        "command": command,
+        "data": {
+            "functions": functions,
+        },
+        "metadata": {
+            "total_results": len(functions),
+            "limited": len(functions) >= 20,
         }
     }, indent=2)
 

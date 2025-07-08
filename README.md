@@ -67,7 +67,7 @@ The server provides essential web crawling and search tools:
 
 6. **`parse_github_repository`**: Parse a GitHub repository into a Neo4j knowledge graph, extracting classes, methods, functions, and their relationships for hallucination detection
 7. **`check_ai_script_hallucinations`**: Analyze Python scripts for AI hallucinations by validating imports, method calls, and class usage against the knowledge graph. The tool accepts either a path to a `.py` file or raw `script_content`. **When the server runs in Docker, file paths must refer to locations inside the container. Mount host directories with `-v` or send the script through the `/api/check_script_hallucinations` endpoint using `script_content` to avoid `Script not found` errors.**
-8. **`query_knowledge_graph`**: Explore and query the Neo4j knowledge graph with commands like `repos`, `classes`, `methods`, and custom Cypher queries
+8. **`query_knowledge_graph`**: Explore and query the Neo4j knowledge graph with commands like `repos`, `classes`, `methods`, `functions`, and custom Cypher queries
 
 ## Prerequisites
 
