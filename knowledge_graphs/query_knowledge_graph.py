@@ -3,7 +3,7 @@
 Knowledge Graph Query Tool
 
 Interactive script to explore what's actually stored in your Neo4j knowledge graph.
-Useful for debugging hallucination detection and understanding graph contents.
+Useful for debugging validation and understanding graph contents.
 """
 
 import asyncio

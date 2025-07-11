@@ -2,7 +2,7 @@
 
 ## Tool Overview
 
-`query_knowledge_graph` is an MCP tool for exploring and querying the Neo4j knowledge graph created by the Crawl4AI RAG server. It allows AI agents and developers to inspect parsed repositories, list classes and methods, and run custom Cypher queries. The tool is primarily used for AI hallucination detection and for understanding repository contents prior to generating or validating code.
+`query_knowledge_graph` is an MCP tool for exploring and querying the Neo4j knowledge graph created by the Crawl4AI RAG server. It allows AI agents and developers to inspect parsed repositories, list classes and methods, and run custom Cypher queries. The tool is primarily used for understanding repository contents prior to generating or validating code.
 
 This tool is enabled when `USE_KNOWLEDGE_GRAPH=true` and requires a working Neo4j connection. It complements the `parse_github_repository` tools by providing a way to manually browse the data used for validation.
 
