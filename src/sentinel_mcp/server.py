@@ -1,9 +1,10 @@
 """
-MCP server for web crawling with Crawl4AI.
+Sentinel MCP server for advanced web intelligence.
 
-This server provides tools to crawl websites using Crawl4AI, automatically detecting
-the appropriate crawl method based on URL type (sitemap, txt file, or regular webpage).
-Includes repository parsing and validation tools using Neo4j knowledge graphs.
+This server provides tools to crawl websites using Crawl4AI, automatically
+detecting the appropriate crawl method based on URL type (sitemap, txt file, or
+regular webpage). It also includes repository parsing and validation tools using
+Neo4j knowledge graphs.
 """
 from mcp.server.fastmcp import FastMCP, Context
 from sentence_transformers import CrossEncoder
@@ -117,7 +118,7 @@ def validate_github_url(repo_url: str) -> Dict[str, Any]:
 # Create a dataclass for our application context
 @dataclass
 class Crawl4AIContext:
-    """Context for the Crawl4AI MCP server."""
+    """Context for the Sentinel MCP server."""
     crawler: AsyncWebCrawler
     supabase_client: Client
     reranking_model: Optional[CrossEncoder] = None
@@ -225,8 +226,8 @@ async def crawl4ai_lifespan(server: FastMCP) -> AsyncIterator[Crawl4AIContext]:
 
 # Initialize FastMCP server
 mcp = FastMCP(
-    "mcp-crawl4ai-rag",
-    description="MCP server for RAG and web crawling with Crawl4AI",
+    "sentinel-mcp",
+    description="Sentinel - Advanced Web Intelligence MCP Server",
     lifespan=crawl4ai_lifespan,
     host=os.getenv("HOST", "0.0.0.0"),
     port=os.getenv("PORT", "8051")

@@ -25,4 +25,4 @@ RUN uv pip install --system -e . && \
 EXPOSE ${PORT}
 
 # Command to run the MCP server
-CMD ["python", "-m", "crawl4ai_mcp.server"]
+CMD ["python", "-m", "sentinel_mcp.server"]

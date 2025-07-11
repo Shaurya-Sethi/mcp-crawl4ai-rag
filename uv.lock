@@ -328,7 +328,7 @@ wheels = [
 ]
 
 [[package]]
-name = "crawl4ai-mcp"
+name = "sentinel-mcp"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

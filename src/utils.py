@@ -1,5 +1,5 @@
 """
-Utility functions for the Crawl4AI MCP server.
+Utility functions for the Sentinel MCP server.
 """
 import os
 import concurrent.futures
