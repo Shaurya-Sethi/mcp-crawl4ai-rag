@@ -94,7 +94,7 @@ class ScriptValidationResult:
     attribute_validations: List[AttributeValidation] = field(default_factory=list)
     function_validations: List[FunctionValidation] = field(default_factory=list)
     overall_confidence: float = 0.0
-    hallucinations_detected: List[Dict[str, Any]] = field(default_factory=list)
+    issues_detected: List[Dict[str, Any]] = field(default_factory=list)
 
 
 class KnowledgeGraphValidator:
@@ -156,9 +156,9 @@ class KnowledgeGraphValidator:
             analysis_result.function_calls
         )
         
-        # Calculate overall confidence and detect hallucinations
+        # Calculate overall confidence and detect issues
         result.overall_confidence = self._calculate_overall_confidence(result)
-        result.hallucinations_detected = self._detect_hallucinations(result)
+        result.issues_detected = self._detect_issues(result)
         
         return result
     
@@ -1197,9 +1197,9 @@ class KnowledgeGraphValidator:
         # Don't use substring matching to avoid "pydantic" matching "pydantic_ai"
         return class_type in self.knowledge_graph_modules
     
-    def _detect_hallucinations(self, result: ScriptValidationResult) -> List[Dict[str, Any]]:
-        """Detect and categorize hallucinations"""
-        hallucinations = []
+    def _detect_issues(self, result: ScriptValidationResult) -> List[Dict[str, Any]]:
+        """Detect and categorize issues"""
+        issues = []
         reported_items = set()  # Track reported items to avoid duplicates
         
         # Check method calls (only for knowledge graph classes)
@@ -1212,7 +1212,7 @@ class KnowledgeGraphValidator:
                 key = (val.method_call.line_number, val.method_call.method_name, val.method_call.object_type)
                 if key not in reported_items:
                     reported_items.add(key)
-                    hallucinations.append({
+                    issues.append({
                         'type': 'METHOD_NOT_FOUND',
                         'location': f"line {val.method_call.line_number}",
                         'description': f"Method '{val.method_call.method_name}' not found on class '{val.method_call.object_type}'",
@@ -1229,7 +1229,7 @@ class KnowledgeGraphValidator:
                 key = (val.attribute_access.line_number, val.attribute_access.attribute_name, val.attribute_access.object_type)
                 if key not in reported_items:
                     reported_items.add(key)
-                    hallucinations.append({
+                    issues.append({
                         'type': 'ATTRIBUTE_NOT_FOUND',
                         'location': f"line {val.attribute_access.line_number}",
                         'description': f"Attribute '{val.attribute_access.attribute_name}' not found on class '{val.attribute_access.object_type}'"
@@ -1241,10 +1241,10 @@ class KnowledgeGraphValidator:
                 val.parameter_validation.status == ValidationStatus.INVALID and
                 val.method_call.object_type and 
                 self._is_from_knowledge_graph(val.method_call.object_type)):
-                hallucinations.append({
+                issues.append({
                     'type': 'INVALID_PARAMETERS',
                     'location': f"line {val.method_call.line_number}",
                     'description': f"Invalid parameters for method '{val.method_call.method_name}': {val.parameter_validation.message}"
                 })
         
-        return hallucinations
+        return issues

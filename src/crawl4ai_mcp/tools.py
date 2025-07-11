@@ -1061,7 +1061,7 @@ async def parse_github_repository(ctx: Context, repo_url: str) -> str:
     
     This tool clones a GitHub repository, analyzes its Python files, and stores
     the code structure (classes, methods, functions, imports) in Neo4j for use
-    in hallucination detection. The tool:
+    for validation purposes. The tool:
     
     - Clones the repository to a temporary location
     - Analyzes Python files to extract code structure

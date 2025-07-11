@@ -21,7 +21,7 @@ The server includes several advanced RAG strategies that can be enabled to enhan
 - **Hybrid Search** combining vector and keyword search
 - **Agentic RAG** for specialized code example extraction
 - **Reranking** for improved result relevance using cross-encoder models
-- **Knowledge Graph** for AI hallucination detection and repository code analysis
+- **Knowledge Graph** for repository code validation and analysis
 
 See the [Configuration section](#configuration) below for details on how to enable and configure these strategies.
 
@@ -73,7 +73,7 @@ The server provides essential web crawling and search tools:
 
 ### Knowledge Graph Tools (requires `USE_KNOWLEDGE_GRAPH=true`, see below)
 
-6. **`parse_github_repository`**: Parse a GitHub repository into a Neo4j knowledge graph, extracting classes, methods, functions, and their relationships for hallucination detection
+6. **`parse_github_repository`**: Parse a GitHub repository into a Neo4j knowledge graph, extracting classes, methods, functions, and their relationships for validation
 7. **`query_knowledge_graph`**: Explore and query the Neo4j knowledge graph with commands like `repos`, `classes`, `methods`, `functions`, and custom Cypher queries
 
 ## Prerequisites
@@ -141,9 +141,9 @@ Before running the server, you need to set up the database with the pgvector ext
 
 ## Knowledge Graph Setup (Optional)
 
-To enable AI hallucination detection and repository analysis features, you need to set up Neo4j.
+To enable knowledge graph validation features, you need to set up Neo4j.
 
-Scripts can be analyzed locally using the `knowledge_graphs/ai_hallucination_detector.py` utility.
+Scripts can be analyzed locally using the `knowledge_graphs/knowledge_graph_validator.py` utility.
 
 For installing Neo4j:
 
@@ -254,9 +254,9 @@ Applies cross-encoder reranking to search results after initial retrieval. Uses 
 - **Benefits**: Better result relevance, especially for complex queries. Works with both regular RAG search and code example search.
 
 #### 5. **USE_KNOWLEDGE_GRAPH**
-Enables AI hallucination detection and repository analysis using Neo4j knowledge graphs. When enabled, the system can parse GitHub repositories into a graph database and validate AI-generated code against real repository structures.
+Enables repository analysis and validation using Neo4j knowledge graphs. When enabled, the system can parse GitHub repositories into a graph database and validate AI-generated code against real repository structures.
 
-- **When to use**: Enable this for AI coding assistants that need to validate generated code against real implementations, or when you want to detect when AI models hallucinate non-existent methods, classes, or incorrect usage patterns.
+- **When to use**: Enable this for AI coding assistants that need to validate generated code against real implementations, or when you want to detect invalid references like non-existent methods or incorrect parameters.
 - **Trade-offs**: Requires Neo4j setup and additional dependencies. Repository parsing can be slow for large codebases, and validation requires repositories to be pre-indexed.
 - **Cost**: No additional API costs for validation, but requires Neo4j infrastructure (can use free local installation or cloud AuraDB).
 - **Benefits**: Provides two powerful tools: `parse_github_repository` for indexing codebases and `query_knowledge_graph` for exploring indexed repositories.
@@ -282,10 +282,10 @@ Once `USE_KNOWLEDGE_GRAPH=true` is set and Neo4j is running, you can:
 
    (The URL **must** end in `.git`.)
 
-2. **Check a script for hallucinations**
+2. **Validate a script against the knowledge graph**
 
    ```bash
-   python knowledge_graphs/ai_hallucination_detector.py /path/to/your_script.py
+   python knowledge_graphs/knowledge_graph_validator.py /path/to/your_script.py
    ```
 
 
@@ -309,7 +309,7 @@ USE_RERANKING=true
 USE_KNOWLEDGE_GRAPH=false
 ```
 
-**For AI coding assistant with hallucination detection:**
+**For AI coding assistant with knowledge graph validation:**
 ```
 USE_CONTEXTUAL_EMBEDDINGS=true
 USE_HYBRID_SEARCH=true
@@ -452,8 +452,7 @@ The knowledge graph system stores repository code structure in Neo4j with the fo
 
 - **`parse_repo_into_neo4j.py`**: Clones and analyzes GitHub repositories, extracting Python classes, methods, functions, and imports into Neo4j nodes and relationships
 - **`ai_script_analyzer.py`**: Parses Python scripts using AST to extract imports, class instantiations, method calls, and function usage
-- **`knowledge_graph_validator.py`**: Validates AI-generated code against the knowledge graph to detect hallucinations (non-existent methods, incorrect parameters, etc.)
-- **`hallucination_reporter.py`**: Generates comprehensive reports about detected hallucinations with confidence scores and recommendations
+- **`knowledge_graph_validator.py`**: Validates AI-generated code against the knowledge graph
 - **`query_knowledge_graph.py`**: Interactive CLI tool for exploring the knowledge graph (functionality now integrated into MCP tools)
 
 ### Knowledge Graph Schema:
