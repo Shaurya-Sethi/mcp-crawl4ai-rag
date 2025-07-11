@@ -34,7 +34,7 @@ async def query_knowledge_graph(ctx: Context, command: str) -> str
 - **Returns**: JSON `str` describing the result or error.
 - **Errors**: Returns a JSON object with `success: false` and an `error` message if the command fails or if the knowledge graph is disabled.
 
-The function automatically checks that `USE_KNOWLEDGE_GRAPH=true` and that a Neo4j driver is available before executing any query【F:src/crawl4ai_mcp.py†L1308-L1370】.
+The function automatically checks that `USE_KNOWLEDGE_GRAPH=true` and that a Neo4j driver is available before executing any query.
 
 ## Available Commands
 
@@ -109,17 +109,17 @@ When an error occurs `success` is `false` and an `error` field is present.
 }
 ```
 
-See `src/crawl4ai_mcp.py` for exact return fields of each handler.
+See `crawl4ai_mcp/tools.py` for exact return fields of each handler.
 
 ## Error Handling
 
 Possible errors include:
-- Knowledge graph disabled (`USE_KNOWLEDGE_GRAPH` not set)【F:src/crawl4ai_mcp.py†L1310-L1318】
-- Neo4j connection not available【F:src/crawl4ai_mcp.py†L1319-L1329】
-- Empty command or unknown command【F:src/crawl4ai_mcp.py†L1331-L1389】
-- Missing arguments for a command (e.g., no repository specified)【F:src/crawl4ai_mcp.py†L1347-L1388】
-- Entity not found (`class`, `method`, or `function` not present)【F:src/crawl4ai_mcp.py†L1518-L1561】【F:src/crawl4ai_mcp.py†L1677-L1692】
-- Cypher query errors are caught and returned in the response【F:src/crawl4ai_mcp.py†L1710-L1737】
+- Knowledge graph disabled (`USE_KNOWLEDGE_GRAPH` not set)
+- Neo4j connection not available
+- Empty command or unknown command
+- Missing arguments for a command (e.g., no repository specified)
+- Entity not found (`class`, `method`, or `function` not present)
+- Cypher query errors are caught and returned in the response
 
 ## Integration Examples
 
@@ -152,11 +152,11 @@ This mirrors the approach used in the tests【F:tests/test_query_function.py†L
    query MATCH (c:Class)-[:HAS_METHOD]->(m:Method) WHERE m.name="run" RETURN c.full_name
    ```
 
-These steps follow the recommended workflow from the function docstring【F:src/crawl4ai_mcp.py†L1250-L1279】.
+These steps follow the recommended workflow from the function docstring.
 
 ## Advanced Usage
 
-- You can send any Cypher query via the `query` command. Results are limited to 20 records to prevent overwhelming responses【F:src/crawl4ai_mcp.py†L1707-L1725】.
+- You can send any Cypher query via the `query` command. Results are limited to 20 records to prevent overwhelming responses.
 - Combine filters to create complex exploration patterns, e.g., find all methods with a given return type or cross-reference repositories.
 
 ## Performance Considerations

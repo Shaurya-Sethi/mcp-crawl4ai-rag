@@ -49,8 +49,6 @@ from utils import (
 # Import knowledge graph modules
 from knowledge_graph_validator import KnowledgeGraphValidator
 from parse_repo_into_neo4j import DirectNeo4jExtractor
-from ai_script_analyzer import AIScriptAnalyzer
-from hallucination_reporter import HallucinationReporter
 
 # Load environment variables from the project root .env file
 project_root = Path(__file__).resolve().parent.parent
