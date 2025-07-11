@@ -4,7 +4,7 @@
 
 `query_knowledge_graph` is an MCP tool for exploring and querying the Neo4j knowledge graph created by the Crawl4AI RAG server. It allows AI agents and developers to inspect parsed repositories, list classes and methods, and run custom Cypher queries. The tool is primarily used for AI hallucination detection and for understanding repository contents prior to generating or validating code.
 
-This tool is enabled when `USE_KNOWLEDGE_GRAPH=true` and requires a working Neo4j connection. It complements the `parse_github_repository` and `check_ai_script_hallucinations` tools by providing a way to manually browse the data used for validation.
+This tool is enabled when `USE_KNOWLEDGE_GRAPH=true` and requires a working Neo4j connection. It complements the `parse_github_repository` tools by providing a way to manually browse the data used for validation.
 
 ## Prerequisites and Setup
 
@@ -140,19 +140,6 @@ print(response)
 ```
 This mirrors the approach used in the tests【F:tests/test_query_function.py†L1-L47】.
 
-### Validating Scripts
-After exploring the graph, you can validate scripts using `check_ai_script_hallucinations` which uses the same Neo4j data. Example:
-```python
-from crawl4ai_mcp import check_ai_script_hallucinations
-report = asyncio.run(check_ai_script_hallucinations(ctx, script_content="print(1)", filename="example.py"))
-```
-
-## Workflow Examples
-
-1. **Explore available repositories**
-   ```
-   repos
-   ```
 2. **Inspect a repository**
    ```
    explore my-repo
@@ -180,9 +167,7 @@ These steps follow the recommended workflow from the function docstring【F:src/
 
 ## Related Tools
 
-The knowledge graph functionality consists of three complementary tools:
+The knowledge graph functionality consists of two complementary tools:
 1. **`parse_github_repository`** – adds repository code to Neo4j for analysis.
-2. **`check_ai_script_hallucinations`** – validates Python scripts against the stored graph to detect hallucinated code.
-3. **`query_knowledge_graph`** – explored here, used to inspect repositories, classes, methods, and arbitrary Cypher queries.
+2. **`query_knowledge_graph`** – explored here, used to inspect repositories, classes, methods, and arbitrary Cypher queries.
 
-Together these tools enable comprehensive hallucination detection workflows as described in the README【F:README.md†L498-L538】.
