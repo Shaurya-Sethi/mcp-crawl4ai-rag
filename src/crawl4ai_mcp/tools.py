@@ -1273,15 +1273,3 @@ async def crawl_recursive_internal_links(crawler: AsyncWebCrawler, start_urls: L
         current_urls = next_level_urls
 
     return results_all
-
-async def main():
-    transport = os.getenv("TRANSPORT", "sse")
-    if transport == 'sse':
-        # Run the MCP server with sse transport
-        await mcp.run_sse_async()
-    else:
-        # Run the MCP server with stdio transport
-        await mcp.run_stdio_async()
-
-if __name__ == "__main__":
-    asyncio.run(main())

@@ -143,11 +143,7 @@ Before running the server, you need to set up the database with the pgvector ext
 
 To enable AI hallucination detection and repository analysis features, you need to set up Neo4j.
 
-Prior versions required passing a file path to the hallucination checker, which
-made Docker usage awkward. A new `/api/check_script_hallucinations` endpoint now
-accepts raw script content so you can run the server in Docker without mounting
-files. If you do use file paths, they must point to files that exist inside the
-container—mount the necessary directories with Docker's `-v` flag.
+Scripts can be analyzed locally using the `knowledge_graphs/ai_hallucination_detector.py` utility.
 
 For installing Neo4j:
 
@@ -292,40 +288,6 @@ Once `USE_KNOWLEDGE_GRAPH=true` is set and Neo4j is running, you can:
    python knowledge_graphs/ai_hallucination_detector.py /path/to/your_script.py
    ```
 
-   Or send the script content directly:
-
-   **Using curl (macOS/Linux):**
-   ```bash
-   curl -X POST http://localhost:8051/api/check_script_hallucinations \
-        -H "Content-Type: application/json" \
-        -d '{"script_content": "print(123)", "filename": "example.py"}'
-   ```
-
-   **Using PowerShell (Windows):**
-   ```powershell
-   $headers = @{ "Content-Type" = "application/json" }
-   $script = [string](Get-Content .\your_script.py -Raw)
-   $bodyObj = @{
-       script_content = $script
-       filename = "your_script.py"
-   }
-   $body = $bodyObj | ConvertTo-Json -Compress
-   Invoke-RestMethod -Uri "http://localhost:8051/api/check_script_hallucinations" -Method Post -Headers $headers -Body $body
-   ```
-
-   **Using Python (cross-platform):**
-   ```python
-   import requests
-   
-  with open('your_script.py', 'r') as f:
-      script_content = f.read()
-   
-   response = requests.post(
-       'http://localhost:8051/api/check_script_hallucinations',
-       json={'script_content': script_content, 'filename': 'your_script.py'}
-   )
-   print(response.json())
-  ```
 
 
 ### Recommended Configurations
@@ -384,7 +346,7 @@ docker run --env-file .env -p 8051:8051 \
 ### Using Python
 
 ```bash
-uv run src/crawl4ai_mcp.py
+python -m crawl4ai_mcp.server
 ```
 
 The server will start and listen on the configured host and port.
@@ -434,7 +396,7 @@ Add this server to your MCP configuration for Claude Desktop, Windsurf, or any o
   "mcpServers": {
     "crawl4ai-rag": {
       "command": "python",
-      "args": ["path/to/crawl4ai-mcp/src/crawl4ai_mcp.py"],
+      "args": ["-m", "crawl4ai_mcp.server"],
       "env": {
         "TRANSPORT": "stdio",
         "OPENAI_API_KEY": "your_openai_api_key",
