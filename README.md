@@ -49,6 +49,14 @@ The Crawl4AI RAG MCP server is just the beginning. Here's where we're headed:
 - **Source Retrieval**: Retrieve sources available for filtering to guide the RAG process
 
 ## Tools
+## Modular Architecture
+
+The server code has been split into a package inside `src/crawl4ai_mcp/` for maintainability.
+Key modules include:
+- `server.py` for configuration and startup logic.
+- `tools.py` containing all MCP tool implementations.
+- `__init__.py` which exposes the `mcp` instance and registers tools.
+
 
 The server provides essential web crawling and search tools:
 
@@ -66,8 +74,7 @@ The server provides essential web crawling and search tools:
 ### Knowledge Graph Tools (requires `USE_KNOWLEDGE_GRAPH=true`, see below)
 
 6. **`parse_github_repository`**: Parse a GitHub repository into a Neo4j knowledge graph, extracting classes, methods, functions, and their relationships for hallucination detection
-7. **`check_ai_script_hallucinations`**: Analyze Python scripts for AI hallucinations by validating imports, method calls, and class usage against the knowledge graph. The tool accepts either a path to a `.py` file or raw `script_content`. **When the server runs in Docker, file paths must refer to locations inside the container. Mount host directories with `-v` or send the script through the `/api/check_script_hallucinations` endpoint using `script_content` to avoid `Script not found` errors.**
-8. **`query_knowledge_graph`**: Explore and query the Neo4j knowledge graph with commands like `repos`, `classes`, `methods`, `functions`, and custom Cypher queries
+7. **`query_knowledge_graph`**: Explore and query the Neo4j knowledge graph with commands like `repos`, `classes`, `methods`, `functions`, and custom Cypher queries
 
 ## Prerequisites
 
@@ -256,7 +263,7 @@ Enables AI hallucination detection and repository analysis using Neo4j knowledge
 - **When to use**: Enable this for AI coding assistants that need to validate generated code against real implementations, or when you want to detect when AI models hallucinate non-existent methods, classes, or incorrect usage patterns.
 - **Trade-offs**: Requires Neo4j setup and additional dependencies. Repository parsing can be slow for large codebases, and validation requires repositories to be pre-indexed.
 - **Cost**: No additional API costs for validation, but requires Neo4j infrastructure (can use free local installation or cloud AuraDB).
-- **Benefits**: Provides three powerful tools: `parse_github_repository` for indexing codebases, `check_ai_script_hallucinations` for validating AI-generated code, and `query_knowledge_graph` for exploring indexed repositories.
+- **Benefits**: Provides two powerful tools: `parse_github_repository` for indexing codebases and `query_knowledge_graph` for exploring indexed repositories.
 
 ### OpenAI Rate-Limit Tuning
 Control LLM API load with two environment variables:
@@ -320,23 +327,6 @@ Once `USE_KNOWLEDGE_GRAPH=true` is set and Neo4j is running, you can:
    print(response.json())
   ```
 
-   You can also call `check_ai_script_hallucinations` directly in Python:
-
-   ```python
-   import asyncio
-   from crawl4ai_mcp import check_ai_script_hallucinations, Context
-
-   ctx = Context(fastmcp=None)  # supply your FastMCP instance
-   report_json = asyncio.run(
-       check_ai_script_hallucinations(
-           ctx,
-           script_content=script_content,
-           filename="your_script.py"
-       )
-   )
-   ```
-   
-These commands are also available to AI coding assistants through the parse_github_repository and check_ai_script_hallucinations tools.
 
 ### Recommended Configurations
 
@@ -523,10 +513,7 @@ The Neo4j database stores code structure as:
 - `Class` -[:HAS_METHOD]-> `Method`
 - `Class` -[:HAS_ATTRIBUTE]-> `Attribute`
 
-### Workflow:
-
 1. **Repository Parsing**: Use `parse_github_repository` tool to clone and analyze open-source repositories
-2. **Code Validation**: Use `check_ai_script_hallucinations` tool to validate AI-generated Python scripts
 3. **Knowledge Exploration**: Use `query_knowledge_graph` tool to explore available repositories, classes, and methods
 
 ## Building Your Own Server
@@ -536,4 +523,7 @@ This implementation provides a foundation for building more complex MCP servers 
 1. Add your own tools by creating methods with the `@mcp.tool()` decorator
 2. Create your own lifespan function to add your own dependencies
 3. Modify the `utils.py` file for any helper functions you need
-4. Extend the crawling capabilities by adding more specialized crawlers
+
+## Developer Guide
+
+New tools should be added in `src/crawl4ai_mcp/tools.py`. Import `mcp` from `.server` and decorate async functions with `@mcp.tool()` to register them. Each tool should return a JSON-formatted string and include clear docstrings for parameters and output.
